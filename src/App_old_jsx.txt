@@ -1,0 +1,292 @@
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { motion } from "framer-motion";
+import "./App.css";
+
+/** Billion-dollar polish:
+ * - Dark/light theme + persisted preference
+ * - Typewriter tagline
+ * - Magnetic buttons, 3D tilt project cards
+ * - Active section nav + smooth scroll
+ * - Safe CV/profile checks
+ */
+
+export default function App() {
+  const CV_PATH = "/Adersh_IT_Executive_CV.pdf";
+  const PROFILE_PATH = "/profile.jpg";
+
+  const skills = ["Azure","AWS","OpenAI API","TensorFlow","React","Node.js","Python","Docker","MySQL","Cybersecurity","Automation"];
+
+  const experiences = [
+    { role:"IT Executive / AI Developer", company:"Paperlink International Fzco", location:"Dubai, UAE", period:"Present",
+      points:[
+        "Managed IT infrastructure with 99.9% uptime SLA.",
+        "Built AI-driven customer support chatbot — 60% faster responses.",
+        "Automated workflows with Python & AI, saving hours weekly."
+      ]},
+    { role:"IT Specialist / Developer", company:"World Wide IT", location:"Goa, India", period:"Earlier",
+      points:[
+        "Developed responsive web apps and analytics dashboards.",
+        "Delivered internal automation tools and training."
+      ]},
+    { role:"IT Support Engineer", company:"Transerve Technologies Pvt Ltd", location:"Goa, India", period:"Earlier",
+      points:["Supported 100+ users; improved reliability and response times." ]},
+  ];
+
+  const projects = [
+    { title:"AI Customer Support Chatbot", client:"Paperlink International", description:"OpenAI + Python serverless chatbot that reduced support load and improved SLA.", cover:"/proj-chatbot.jpg" },
+    { title:"Operations Dashboard", client:"Internal Tooling", description:"Real-time dashboard combining multiple data sources for operations visibility.", cover:"/proj-dashboard.jpg" }
+  ];
+
+  // theme
+  const [theme, setTheme] = useState("light");
+  // resource presence
+  const [cvExists, setCvExists] = useState(false);
+  const [profileExists, setProfileExists] = useState(false);
+
+  // typewriter
+  const phrases = useMemo(() => [
+    "AI Developer",
+    "IT Executive",
+    "Full‑Stack Engineer",
+    "Automation Architect"
+  ], []);
+  const [typed, setTyped] = useState("");
+  const [pi, setPi] = useState(0); // phrase index
+  const [dir, setDir] = useState(1); // 1 typing, -1 deleting
+
+  // active section
+  const [active, setActive] = useState("home");
+
+  useEffect(() => {
+    // theme from storage or system
+    const saved = localStorage.getItem("theme");
+    const initial = saved ?? (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    setTheme(initial);
+    document.documentElement.setAttribute("data-theme", initial);
+
+    // presence checks (non-blocking)
+    fetch(CV_PATH, { method: "HEAD" }).then(r => setCvExists(r.ok)).catch(()=>{});
+    fetch(PROFILE_PATH, { method: "HEAD" }).then(r => setProfileExists(r.ok)).catch(()=>{});
+  }, []);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      const target = phrases[pi % phrases.length];
+      if (dir === 1) {
+        if (typed.length < target.length) setTyped(target.slice(0, typed.length + 1));
+        else setTimeout(() => setDir(-1), 800);
+      } else {
+        if (typed.length > 0) setTyped(target.slice(0, typed.length - 1));
+        else { setDir(1); setPi((pi+1) % phrases.length); }
+      }
+    }, 70);
+    return () => clearInterval(id);
+  }, [typed, dir, pi, phrases]);
+
+  function toggleTheme(){
+    const next = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    document.documentElement.setAttribute("data-theme", next);
+    localStorage.setItem("theme", next);
+  }
+
+  // Intersection observer for active nav
+  useEffect(() => {
+    const ids = ["home","about","experience","projects","contact"];
+    const observers = [];
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const obs = new IntersectionObserver(([entry]) => {
+        if (entry.isIntersecting) setActive(id);
+      }, { rootMargin:"-40% 0px -55% 0px", threshold: 0.1 });
+      obs.observe(el);
+      observers.push(obs);
+    });
+    return () => observers.forEach(o => o.disconnect());
+  }, []);
+
+  // magnetic button handler
+  function useMagnet() {
+    const ref = useRef(null);
+    function onMove(e){
+      const el = ref.current; if (!el) return;
+      const r = el.getBoundingClientRect();
+      const x = e.clientX - (r.left + r.width/2);
+      const y = e.clientY - (r.top + r.height/2);
+      el.style.transform = `translate(${x*0.08}px, ${y*0.08}px)`;
+    }
+    function onLeave(){ if (ref.current) ref.current.style.transform = ""; }
+    return { ref, onMove, onLeave };
+  }
+  const magnetHire = useMagnet();
+  const magnetCV = useMagnet();
+
+  // 3D tilt for project cards
+  function useTilt() {
+    const ref = useRef(null);
+    function onMove(e){
+      const el = ref.current; if (!el) return;
+      const r = el.getBoundingClientRect();
+      const px = (e.clientX - r.left) / r.width;
+      const py = (e.clientY - r.top) / r.height;
+      const rx = (py - 0.5) * -10;
+      const ry = (px - 0.5) * 10;
+      el.style.transform = `perspective(800px) rotateX(${rx}deg) rotateY(${ry}deg) translateZ(0)`;
+    }
+    function onLeave(){ if (ref.current) ref.current.style.transform = ""; }
+    return { ref, onMove, onLeave };
+  }
+
+  const containerVariants = { hidden: {}, show: { transition: { staggerChildren: 0.06 } } };
+  const itemVariants = { hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } };
+
+  return (
+    <div className="page-wrap">
+      <nav className="topbar">
+        <div className="brand">Adersh</div>
+        <div className="nav-links">
+          {["home","about","experience","projects","contact"].map(id => (
+            <a key={id} href={"#"+id} className={active===id ? "active" : ""}>{id}</a>
+          ))}
+        </div>
+        <div className="topbar-right">
+          <button className="icon-btn" onClick={toggleTheme} aria-label="Toggle theme">{theme === "dark" ? "🌞" : "🌙"}</button>
+          <a className="icon-btn" href="mailto:adarshdessai1993@gmail.com" title="Email">✉️</a>
+        </div>
+      </nav>
+
+      <main className="container">
+        {/* HERO */}
+        <section className="hero card" id="home">
+          <div className="hero-left">
+            <motion.h1 initial={{ opacity:0, y:-8 }} animate={{ opacity:1, y:0 }} transition={{ duration:.45 }} className="hero-title">
+              Adersh Purso Gauns Dessai
+            </motion.h1>
+            <motion.p initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ delay:.15 }} className="hero-sub">
+              <span className="muted">I’m a</span> <span className="type">{typed}</span><span className="cursor">|</span>
+              <span className="muted"> helping teams move faster with AI.</span>
+            </motion.p>
+
+            <motion.div className="hero-ctas" initial="hidden" animate="show" variants={containerVariants}>
+              <motion.a variants={itemVariants} className="btn primary"
+                        href={cvExists ? CV_PATH : "#"}
+                        {...(cvExists ? { download:true } : { onClick:(e)=>e.preventDefault() })}
+                        ref={magnetCV.ref} onMouseMove={magnetCV.onMove} onMouseLeave={magnetCV.onLeave}>
+                {cvExists ? "📄 Download CV" : "CV (not available)"}
+              </motion.a>
+
+              <motion.a variants={itemVariants} className="btn premium"
+                        href="mailto:adarshdessai1993@gmail.com?subject=Hiring%20Inquiry"
+                        ref={magnetHire.ref} onMouseMove={magnetHire.onMove} onMouseLeave={magnetHire.onLeave}>
+                💼 Hire Me
+              </motion.a>
+            </motion.div>
+
+            <motion.ul className="skill-list" initial="hidden" animate="show" variants={containerVariants} aria-hidden={false}>
+              {skills.slice(0, 10).map((s) => (
+                <motion.li key={s} className="skill" variants={itemVariants}>{s}</motion.li>
+              ))}
+            </motion.ul>
+          </div>
+
+          <div className="hero-right">
+            {profileExists ? (
+              <motion.img src={PROFILE_PATH} alt="Adersh profile" className="profile-photo"
+                loading="lazy" decoding="async"
+                initial={{ opacity:0, scale:.9 }} whileInView={{ opacity:1, scale:1 }}
+                viewport={{ once:true }} transition={{ duration:.8 }} />
+            ) : (
+              <motion.div className="profile-placeholder" initial={{ opacity:0, scale:.9 }} whileInView={{ opacity:1, scale:1 }} viewport={{ once:true }} transition={{ duration:.8 }}>
+                <div className="pulse-ring" />
+                <div className="silhouette">A</div>
+              </motion.div>
+            )}
+          </div>
+        </section>
+
+        {/* ABOUT */}
+        <motion.section className="card" id="about" initial={{ opacity:0, y:30 }} whileInView={{ opacity:1, y:0 }} transition={{ duration:.6 }} viewport={{ once:true }}>
+          <h2>About</h2>
+          <p className="muted">
+            Innovative IT Executive with 6 years of experience across India and the UAE. I design secure,
+            scalable infrastructure and build AI-first automation that saves teams time and helps leaders
+            make data‑driven decisions.
+          </p>
+          <div className="grid-2">
+            <div>
+              <h3>Core</h3>
+              <ul>
+                <li>IT Infrastructure & Operations</li>
+                <li>AI & Automation (chatbots, predictive models)</li>
+                <li>Cloud (Azure, AWS), DevOps & Security</li>
+              </ul>
+            </div>
+            <div>
+              <h3>Other</h3>
+              <ul>
+                <li>Web & App Development (React, Node, Python)</li>
+                <li>Data & BI dashboards</li>
+                <li>Team training & stakeholder communication</li>
+              </ul>
+            </div>
+          </div>
+        </motion.section>
+
+        {/* EXPERIENCE */}
+        <motion.section className="card" id="experience" initial={{ opacity:0, y:30 }} whileInView={{ opacity:1, y:0 }} transition={{ duration:.6, delay:.08 }} viewport={{ once:true }}>
+          <h2>Experience</h2>
+          <div className="timeline">
+            {experiences.map((exp, i) => (
+              <motion.div key={i} className="timeline-item" whileHover={{ y:-4 }}>
+                <div className="timeline-meta">
+                  <strong>{exp.role}</strong><span className="muted"> {exp.company} • {exp.location}</span>
+                  <div className="muted small">{exp.period}</div>
+                </div>
+                <ul>{exp.points.map((p, j)=><li key={j}>{p}</li>)}</ul>
+              </motion.div>
+            ))}
+          </div>
+        </motion.section>
+
+        {/* PROJECTS */}
+        <motion.section className="card" id="projects" initial={{ opacity:0, y:30 }} whileInView={{ opacity:1, y:0 }} transition={{ duration:.6, delay:.16 }} viewport={{ once:true }}>
+          <h2>Selected Projects</h2>
+          <div className="project-grid">
+            {projects.map((p, i) => {
+              const tilt = useTilt();
+              return (
+                <motion.article className="project" key={i} whileHover={{ y:-6 }} transition={{ duration:.2 }}
+                  ref={tilt.ref} onMouseMove={tilt.onMove} onMouseLeave={tilt.onLeave}>
+                  {p.cover && <img className="project-cover" src={p.cover} alt={p.title} loading="lazy" decoding="async" />}
+                  <div style={{ padding: 14 }}>
+                    <h3 style={{ margin: "6px 0 2px" }}>{p.title}</h3>
+                    <p className="muted small" style={{ margin: 0 }}>{p.client}</p>
+                    <p style={{ marginTop: 8 }}>{p.description}</p>
+                  </div>
+                </motion.article>
+              );
+            })}
+          </div>
+        </motion.section>
+
+        {/* CONTACT */}
+        <motion.section className="card" id="contact" initial={{ opacity:0, y:30 }} whileInView={{ opacity:1, y:0 }} transition={{ duration:.6, delay:.22 }} viewport={{ once:true }}>
+          <h2>Contact</h2>
+          <p className="muted">Let’s build something game‑changing.</p>
+          <div className="hero-ctas">
+            <a className="btn outline" href="mailto:adarshdessai1993@gmail.com?subject=Project%20Inquiry">Email</a>
+            <a className="btn primary" href="#home">Back to top</a>
+          </div>
+        </motion.section>
+
+        <footer className="card muted small">
+          <div style={{ display:"flex", justifyContent:"space-between", gap:16, alignItems:"center", flexWrap:"wrap" }}>
+            <div>© {new Date().getFullYear()} Adersh Purso Gauns Dessai</div>
+            <div><a href="mailto:adarshdessai1993@gmail.com">adarshdessai1993@gmail.com</a> • +971 52 637 3340</div>
+          </div>
+        </footer>
+      </main>
+    </div>
+  );
+}
